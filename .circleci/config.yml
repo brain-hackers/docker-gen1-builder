@@ -4,7 +4,6 @@ jobs:
   build_cegcc:
     machine:
       image:  ubuntu-2004:current
-      docker_layer_caching: true
     parameters:
       resource_class:
         type: string
@@ -14,7 +13,14 @@ jobs:
       - checkout
       - restore_cache:
           key: cegcc-{{ arch }}-{{ checksum "Dockerfile.worker" }}-{{ checksum "Makefile" }}-{{ checksum "scripts/build_cegcc.bash" }}
-      - run: make build-worker
+      - run: 
+          command: |
+            export ARCH=$(make show-host-arch)
+            if [ ! -e cache/cegcc_${ARCH}.tar.xz ]; then
+              make build-worker
+            else 
+              echo "cache found. skip build process"
+            fi
       - run:
           name: build cegcc
           command: |
@@ -36,7 +42,6 @@ jobs:
   build_arm-none-eabi:
     machine:
       image:  ubuntu-2004:current
-      docker_layer_caching: true
     parameters:
       resource_class:
         type: string
@@ -46,7 +51,14 @@ jobs:
       - checkout
       - restore_cache:
           key: arm-none-eabi-{{ arch }}-{{ checksum "Dockerfile.worker" }}-{{ checksum "Makefile" }}-{{ checksum "scripts/build_arm-none-eabi.bash" }}
-      - run: make build-worker
+      - run: 
+          command: |
+            export ARCH=$(make show-host-arch)
+            if [ ! -e cache/arm-none-eabi_${ARCH}.tar.xz ]; then
+              make build-worker
+            else 
+                echo "cache found. skip build process"
+            fi
       - run:
           name: build arm-none-eabi
           command: |
