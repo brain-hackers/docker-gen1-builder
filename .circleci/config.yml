@@ -82,15 +82,15 @@ jobs:
             docker buildx build \
               --load \
               --platform linux/${ARCH} \
-              --tag brain-hackers/gen1_builder:latest .
+              --tag brainhackers/gen1_builder:latest .
       - run:
           name: check arm-mingw32ce-gcc
           command: |
-            docker run -it --rm brain-hackers/gen1_builder:latest /home/builder/cegcc/bin/arm-mingw32ce-gcc -v
+            docker run -it --rm brainhackers/gen1_builder:latest /home/builder/cegcc/bin/arm-mingw32ce-gcc -v
       - run:
           name: check arm-none-eabi-gcc
           command: |
-            docker run -it --rm brain-hackers/gen1_builder:latest /home/builder/arm-none-eabi/bin/arm-none-eabi-gcc -v
+            docker run -it --rm brainhackers/gen1_builder:latest /home/builder/arm-none-eabi/bin/arm-none-eabi-gcc -v
 
   build_and_push_builder:
     machine:
@@ -113,7 +113,7 @@ jobs:
             docker buildx build \
               --push \
               --platform linux/arm64,linux/amd64 \
-              --tag brain-hackers/gen1_builder:latest .
+              --tag brainhackers/gen1_builder:latest .
 
 workflows:
   build_and_test_and_push:
