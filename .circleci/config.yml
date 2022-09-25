@@ -78,10 +78,6 @@ jobs:
           at: .
       - run:
           command: |
-            sudo apt-get update
-            sudo apt-get -y install binfmt-support qemu-user-static
-      - run:
-          command: |
             export ARCH=$(make show-host-arch)
             docker buildx build \
               --load \
@@ -96,8 +92,31 @@ jobs:
           command: |
             docker run -it --rm brain-hackers/gen1_builder:latest /home/builder/arm-none-eabi/bin/arm-none-eabi-gcc -v
 
+  build_and_push_builder:
+    machine:
+      image:  ubuntu-2004:current
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: docker login
+          command: |
+            docker login -u $DOCKER_USER -p $DOCKER_PASS
+      - run:
+          command: |
+            sudo apt-get update
+            sudo apt-get -y install binfmt-support qemu-user-static
+      - run:
+          command: |
+            docker buildx create --use
+            docker buildx build \
+              --push \
+              --platform linux/arm64,linux/amd64 \
+              --tag brain-hackers/gen1_builder:latest .
+
 workflows:
-  build_and_test:
+  build_and_test_and_push:
     when:
       condition:
         equrl: [ main, << pipeline.git.branch >> ]
@@ -117,3 +136,6 @@ workflows:
           matrix:
             parameters:
               resource_class: ["arm.medium", "medium"]
+      - build_and_push_builder:
+          requires:
+            - build_and_test_builder
