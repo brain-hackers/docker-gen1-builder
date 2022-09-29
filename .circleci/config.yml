@@ -1,0 +1,155 @@
+version: 2.1
+
+jobs:
+  build_cegcc:
+    machine:
+      image:  ubuntu-2004:current
+    parameters:
+      resource_class:
+        type: string
+    resource_class: << parameters.resource_class >>
+    working_directory: ~/project
+    steps:
+      - checkout
+      - restore_cache:
+          key: cegcc-{{ arch }}-{{ checksum "Dockerfile.worker" }}-{{ checksum "Makefile" }}-{{ checksum "scripts/build_cegcc.bash" }}
+      - run: 
+          command: |
+            export ARCH=$(make show-host-arch)
+            if [ ! -e cache/cegcc_${ARCH}.tar.xz ]; then
+              make build-worker
+            else 
+              echo "cache found. skip build process"
+            fi
+      - run:
+          name: build cegcc
+          command: |
+            export ARCH=$(make show-host-arch)
+            if [ ! -e cache/cegcc_${ARCH}.tar.xz ]; then
+              make cache/cegcc_${ARCH}.tar.xz
+            else
+              echo "cache found. skip build process"
+            fi
+      - save_cache:
+          key: cegcc-{{ arch }}-{{ checksum "Dockerfile.worker" }}-{{ checksum "Makefile" }}-{{ checksum "scripts/build_cegcc.bash" }}
+          paths:
+            - cache
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - cache
+
+  build_arm-none-eabi:
+    machine:
+      image:  ubuntu-2004:current
+    parameters:
+      resource_class:
+        type: string
+    resource_class: << parameters.resource_class >>
+    working_directory: ~/project
+    steps:
+      - checkout
+      - restore_cache:
+          key: arm-none-eabi-{{ arch }}-{{ checksum "Dockerfile.worker" }}-{{ checksum "Makefile" }}-{{ checksum "scripts/build_arm-none-eabi.bash" }}
+      - run: 
+          command: |
+            export ARCH=$(make show-host-arch)
+            if [ ! -e cache/arm-none-eabi_${ARCH}.tar.xz ]; then
+              make build-worker
+            else 
+                echo "cache found. skip build process"
+            fi
+      - run:
+          name: build arm-none-eabi
+          command: |
+            export ARCH=$(make show-host-arch)
+            if [ ! -e cache/arm-none-eabi_${ARCH}.tar.xz ]; then
+              make cache/arm-none-eabi_${ARCH}.tar.xz
+            else
+              echo "cache found. skip build process"
+            fi
+      - save_cache:
+          key: arm-none-eabi-{{ arch }}-{{ checksum "Dockerfile.worker" }}-{{ checksum "Makefile" }}-{{ checksum "scripts/build_arm-none-eabi.bash" }}
+          paths:
+            - cache
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - cache/
+
+  build_and_test_builder:
+    machine:
+      image:  ubuntu-2004:current
+    parameters:
+      resource_class:
+        type: string
+    resource_class: << parameters.resource_class >>
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          command: |
+            export ARCH=$(make show-host-arch)
+            docker buildx build \
+              --load \
+              --platform linux/${ARCH} \
+              --tag $DOCKER_USER/gen1_builder:latest .
+      - run:
+          name: check arm-mingw32ce-gcc
+          command: |
+            docker run -it --rm $DOCKER_USER/gen1_builder:latest /home/builder/cegcc/bin/arm-mingw32ce-gcc -v
+      - run:
+          name: check arm-none-eabi-gcc
+          command: |
+            docker run -it --rm $DOCKER_USER/gen1_builder:latest /home/builder/arm-none-eabi/bin/arm-none-eabi-gcc -v
+
+  build_and_push_builder:
+    machine:
+      image:  ubuntu-2004:current
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: docker login
+          command: |
+            docker login -u $DOCKER_USER -p $DOCKER_PASS
+      - run:
+          command: |
+            sudo apt-get update
+            sudo apt-get -y install binfmt-support qemu-user-static
+      - run:
+          command: |
+            docker buildx create --use
+            docker buildx build \
+              --push \
+              --platform linux/arm64,linux/amd64 \
+              --tag $DOCKER_USER/gen1_builder:latest .
+
+workflows:
+  build_and_test_and_push:
+    jobs:
+      - build_cegcc:
+          matrix:
+            parameters:
+              resource_class: ["arm.large", "large"]
+      - build_arm-none-eabi:
+          matrix:
+            parameters:
+              resource_class: ["arm.large", "large"]
+      - build_and_test_builder:
+          requires:
+            - build_cegcc
+            - build_arm-none-eabi
+          matrix:
+            parameters:
+              resource_class: ["arm.medium", "medium"]
+      - build_and_push_builder:
+          requires:
+            - build_and_test_builder
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
