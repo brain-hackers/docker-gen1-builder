@@ -127,18 +127,33 @@ jobs:
               --platform linux/arm64,linux/amd64 \
               --tag $DOCKER_USER/gen1_builder:latest .
 
+aliases:
+  filter-accept-all: &filter-accept-all
+    filters:
+      tags:
+        only: /.*/
+  filter-tags-only: &filter-tags-only
+    filters:
+      tags:
+        only: /.*/
+      branches:
+        ignore: /.*/
+
 workflows:
   build_and_test_and_push:
     jobs:
       - build_cegcc:
+          <<: *filter-accept-all
           matrix:
             parameters:
               resource_class: ["arm.large", "large"]
       - build_arm-none-eabi:
+          <<: *filter-accept-all
           matrix:
             parameters:
               resource_class: ["arm.large", "large"]
       - build_and_test_builder:
+          <<: *filter-accept-all
           requires:
             - build_cegcc
             - build_arm-none-eabi
@@ -146,10 +161,6 @@ workflows:
             parameters:
               resource_class: ["arm.medium", "medium"]
       - build_and_push_builder:
+          <<: *filter-tags-only
           requires:
             - build_and_test_builder
-          filters:
-            tags:
-              only: /^v.*/
-            branches:
-              ignore: /.*/
