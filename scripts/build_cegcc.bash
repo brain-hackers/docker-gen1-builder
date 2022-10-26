@@ -17,6 +17,10 @@ mkdir -p ${WORKSPACE}/cegcc-working
 cd ${WORKSPACE}/cegcc-working
 ${WORKSPACE}/cegcc-build/build.sh --prefix=${WORKSPACE}/cegcc --parallelism $(nproc)
 
+# strip
+cd ${WORKSPACE}/cegcc
+find . | xargs file | grep "not stripped" | grep -oE '^[^:]+' | xargs strip
+
 # compress
 cd ${WORKSPACE}
 XZ_OPT="-T0" tar Jcf cegcc.tar.xz cegcc
