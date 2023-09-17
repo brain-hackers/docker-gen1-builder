@@ -35,10 +35,11 @@ USER ${USER_NAME}
 WORKDIR /home/${USER_NAME}/
 
 # install toolchain
-COPY --from=unpacker /tmp/arm-none-eabi /home/${USER_NAME}/arm-none-eabi
+RUN mkdir -p /home/${USER_NAME}/x-tools
+COPY --from=unpacker /tmp/arm-none-eabi /home/${USER_NAME}/x-tools/arm-none-eabi
 COPY --from=unpacker /tmp/cegcc /home/${USER_NAME}/cegcc
 
-RUN echo 'export PATH=$PATH:$HOME/arm-none-eabi/bin' >> /home/${USER_NAME}/.bashrc
+RUN echo 'export PATH=$PATH:$HOME/x-tools/arm-none-eabi/bin' >> /home/${USER_NAME}/.bashrc
 RUN echo 'export PATH=$PATH:$HOME/cegcc/bin' >> /home/${USER_NAME}/.bashrc
 
 CMD ["/bin/bash"]
